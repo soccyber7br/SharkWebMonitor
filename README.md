@@ -102,6 +102,8 @@ SharkWebmonitor.html
 
 Não precisa de servidor, backend ou instalação.
 
+Ou Pode usar Vercel : https://shark-web-monitor.vercel.app/
+
 🧠 Como funciona
 
 O sistema mede latência usando requisições HTTP para endpoints leves:
