@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor de Rede</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --bg2: #13161e;
+    --bg3: #1a1e2a;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --dim: #3d4455;
+    --ok: #22c55e;
+    --ok-bg: rgba(34,197,94,0.1);
+    --warn: #f59e0b;
+    --warn-bg: rgba(245,158,11,0.1);
+    --err: #ef4444;
+    --err-bg: rgba(239,68,68,0.1);
+    --blue: #3b82f6;
+    --blue-bg: rgba(59,130,246,0.1);
+    --accent: #6366f1;
+    --accent-bg: rgba(99,102,241,0.1);
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: 'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 54px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .topbar-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--text);
+  }
+
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+
+  .topbar-sep { flex: 1; }
+
+  .live-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 10px;
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--ok);
+    animation: blink 1.6s ease-in-out infinite;
+  }
+
+  .live-dot.paused { background: var(--warn); animation: none; }
+  .live-dot.down { background: var(--err); animation: blink .6s ease-in-out infinite; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  #topbar-status { font-weight: 500; }
+  #topbar-time { color: var(--dim); margin-left: 4px; }
+
+  .btn-pause {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    font-weight: 500;
+  }
+
+  .btn-pause:hover { background: var(--border); }
+
+  /* MAIN LAYOUT */
+  .main { padding: 24px 28px; max-width: 1280px; margin: 0 auto; }
+
+  /* IMPACT BANNER — principal destaque */
+  .impact-banner {
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    border: 1px solid;
+    transition: all .4s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .impact-banner::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .impact-banner.ok { background: var(--ok-bg); border-color: rgba(34,197,94,.25); }
+  .impact-banner.ok::before { background: var(--ok); }
+  .impact-banner.warn { background: var(--warn-bg); border-color: rgba(245,158,11,.3); }
+  .impact-banner.warn::before { background: var(--warn); }
+  .impact-banner.err { background: var(--err-bg); border-color: rgba(239,68,68,.35); }
+  .impact-banner.err::before { background: var(--err); }
+  .impact-banner.critical { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.5); animation: pulseBorder .8s ease-in-out infinite; }
+  .impact-banner.critical::before { background: var(--err); }
+
+  @keyframes pulseBorder {
+    0%,100%{ border-color: rgba(239,68,68,.5); }
+    50%{ border-color: rgba(239,68,68,.9); }
+  }
+
+  .banner-icon { font-size: 24px; flex-shrink: 0; margin-top: 2px; }
+  .banner-body { flex: 1; }
+  .banner-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .banner-title.ok { color: var(--ok); }
+  .banner-title.warn { color: var(--warn); }
+  .banner-title.err { color: var(--err); }
+
+  /* impacto explicativo — parte nova */
+  .banner-impact {
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 6px;
+    line-height: 1.5;
+  }
+
+  .banner-impact strong { font-weight: 600; }
+
+  .banner-tip {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    background: rgba(0,0,0,0.2);
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-top: 2px;
+  }
+
+  .banner-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .banner-lat {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .banner-lat.ok { color: var(--ok); }
+  .banner-lat.warn { color: var(--warn); }
+  .banner-lat.err { color: var(--err); }
+  .banner-lat-label { font-size: 10px; color: var(--muted); font-family: var(--font-mono); }
+
+  /* HEALTH SCORE + CARDS */
+  .top-row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .health-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .health-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .health-ring-wrap { position: relative; width: 80px; height: 80px; }
+
+  .health-ring-wrap svg { width: 80px; height: 80px; transform: rotate(-90deg); }
+
+  .health-score-num {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .health-desc {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 14px;
+  }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .card.c-blue::before { background: var(--blue); }
+  .card.c-ok::before { background: var(--ok); }
+  .card.c-warn::before { background: var(--warn); }
+  .card.c-err::before { background: var(--err); }
+  .card.c-accent::before { background: var(--accent); }
+
+  .card-label {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 8px;
+  }
+
+  .card-val {
+    font-family: var(--font-mono);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .card-unit { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+  .card-sub { font-size: 11px; color: var(--dim); margin-top: 6px; }
+
+  /* IMPACT SCALE — faixa de impacto */
+  .impact-scale {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 18px;
+  }
+
+  .scale-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .scale-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .scale-current-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--accent);
+  }
+
+  .scale-bar {
+    position: relative;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #22c55e 0%, #22c55e 20%, #84cc16 20%, #84cc16 35%, #f59e0b 35%, #f59e0b 55%, #f97316 55%, #f97316 75%, #ef4444 75%, #ef4444 100%);
+    margin-bottom: 8px;
+  }
+
+  .scale-needle {
+    position: absolute;
+    top: -4px;
+    width: 4px;
+    height: 16px;
+    background: white;
+    border-radius: 2px;
+    transform: translateX(-50%);
+    box-shadow: 0 0 6px rgba(255,255,255,0.5);
+    transition: left .5s ease;
+  }
+
+  .scale-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--dim);
+  }
+
+  .scale-zones {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    margin-top: 10px;
+  }
+
+  .zone {
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid;
+    cursor: default;
+    transition: opacity .2s;
+  }
+
+  .zone.inactive { opacity: 0.4; }
+  .zone.active { opacity: 1; }
+
+  .zone-name {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: 3px;
+    font-weight: 700;
+  }
+
+  .zone-range {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    opacity: 0.7;
+    margin-bottom: 3px;
+  }
+
+  .zone-desc {
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  .zone.z1 { background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.2); color: #86efac; }
+  .zone.z1 .zone-name { color: #22c55e; }
+  .zone.z2 { background: rgba(132,204,22,.08); border-color: rgba(132,204,22,.2); color: #bef264; }
+  .zone.z2 .zone-name { color: #84cc16; }
+  .zone.z3 { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.2); color: #fde68a; }
+  .zone.z3 .zone-name { color: #f59e0b; }
+  .zone.z4 { background: rgba(249,115,22,.08); border-color: rgba(249,115,22,.2); color: #fdba74; }
+  .zone.z4 .zone-name { color: #f97316; }
+  .zone.z5 { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.2); color: #fca5a5; }
+  .zone.z5 .zone-name { color: #ef4444; }
+
+  /* CHART */
+  .chart-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .section-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .legend {
+    display: flex; gap: 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .leg { display: flex; align-items: center; gap: 5px; }
+  .leg-line { width: 16px; height: 2px; border-radius: 1px; }
+
+  .chart-wrap { position: relative; height: 180px; }
+
+  /* ALERTS PANEL */
+  .alerts-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+  }
+
+  .alert-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .alert-list::-webkit-scrollbar { width: 4px; }
+  .alert-list::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 4px; }
+
+  .alert-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: start;
+  }
+
+  .alert-item.a-warn { border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.04); }
+  .alert-item.a-err  { border-color: rgba(239,68,68,.25);  background: rgba(239,68,68,.04); }
+  .alert-item.a-ok   { border-color: rgba(34,197,94,.15);  background: rgba(34,197,94,.03); }
+
+  .alert-icon { font-size: 16px; padding-top: 1px; }
+  .alert-body {}
+  .alert-headline { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+  .alert-item.a-warn .alert-headline { color: var(--warn); }
+  .alert-item.a-err  .alert-headline { color: var(--err); }
+  .alert-item.a-ok   .alert-headline { color: var(--ok); }
+
+  .alert-explain {
+    font-size: 11px;
+    color: var(--text);
+    line-height: 1.45;
+    margin-bottom: 4px;
+  }
+
+  .alert-action {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    background: rgba(0,0,0,0.2);
+    padding: 2px 6px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+
+  .alert-time {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--dim);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* BOTTOM GRID */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+
+  /* LOG */
+  .log-list {
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 12px;
+  }
+
+  .log-list::-webkit-scrollbar { width: 4px; }
+  .log-list::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 4px; }
+
+  .log-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    border: 1px solid transparent;
+  }
+
+  .log-item.ok  { background: rgba(34,197,94,.05);  border-color: rgba(34,197,94,.1); }
+  .log-item.warn{ background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.1); }
+  .log-item.err { background: rgba(239,68,68,.05);  border-color: rgba(239,68,68,.1); }
+
+  .log-time { flex-shrink: 0; color: var(--dim); font-size: 10px; padding-top: 1px; }
+  .log-icon.ok   { color: var(--ok); }
+  .log-icon.warn { color: var(--warn); }
+  .log-icon.err  { color: var(--err); }
+  .log-msg { color: var(--text); line-height: 1.4; }
+
+  /* SETTINGS */
+  .settings-grid { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .setting-label { font-size: 12px; color: var(--muted); flex: 1; }
+
+  .setting-val {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    min-width: 48px;
+    text-align: right;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 110px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--dim);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  select.sel {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    outline: none;
+  }
+
+  /* FOOTER */
+  .footer { display: flex; gap: 12px; padding-top: 4px; }
+
+  .btn-export {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 7px 14px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all .15s;
+    font-weight: 500;
+  }
+
+  .btn-export:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .btn-clear {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 7px 14px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+
+  .btn-clear:hover { border-color: var(--err); color: var(--err); }
+
+  .checks-info {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--dim);
+    display: flex;
+    align-items: center;
+  }
+
+  /* TOAST */
+  .alert-toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    display: none;
+    z-index: 999;
+    max-width: 360px;
+    animation: slideIn .3s ease;
+    border: 1px solid;
+  }
+
+  .alert-toast.t-err { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.4); color: #fca5a5; }
+  .alert-toast.t-warn { background: rgba(245,158,11,.15); border-color: rgba(245,158,11,.4); color: #fde68a; }
+  .alert-toast.t-ok { background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.3); color: #86efac; }
+
+  .toast-title { font-weight: 700; margin-bottom: 4px; font-size: 12px; }
+  .toast-body { font-size: 11px; opacity: .85; line-height: 1.4; }
+
+  @keyframes slideIn { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
+
+  @media (max-width: 800px) {
+    .top-row { grid-template-columns: 1fr; }
+    .cards { grid-template-columns: repeat(2,1fr); }
+    .bottom-grid { grid-template-columns: 1fr; }
+    .scale-zones { grid-template-columns: 1fr 1fr; }
+    .main { padding: 14px; }
+    .topbar { padding: 0 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <div class="logo-icon">⬡</div>
+    SHARK WEB MONITOR
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="live-pill">
+    <div class="live-dot" id="live-dot"></div>
+    <span id="topbar-status">ONLINE</span>
+    <span id="topbar-time">—</span>
+  </div>
+  <button class="btn-pause" id="btn-pause" onclick="togglePause()">⏸ PAUSAR</button>
+</div>
+
+<div class="main">
+
+  <!-- IMPACT BANNER -->
+  <div class="impact-banner ok" id="banner">
+    <div class="banner-icon" id="banner-icon">✓</div>
+    <div class="banner-body">
+      <div class="banner-title ok" id="banner-title">Conexão estável</div>
+      <div class="banner-impact" id="banner-impact">Aguardando primeira medição...</div>
+      <div class="banner-tip" id="banner-tip" style="display:none"></div>
+    </div>
+    <div class="banner-right">
+      <div class="banner-lat ok" id="banner-lat">— ms</div>
+      <div class="banner-lat-label">latência atual</div>
+    </div>
+  </div>
+
+  <!-- HEALTH + CARDS -->
+  <div class="top-row">
+    <div class="health-card">
+      <div class="health-label">Saúde da Rede</div>
+      <div class="health-ring-wrap">
+        <svg viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+          <circle id="health-ring" cx="40" cy="40" r="32" fill="none" stroke="#22c55e" stroke-width="8"
+            stroke-dasharray="201" stroke-dashoffset="201" stroke-linecap="round"/>
+        </svg>
+        <div class="health-score-num" id="health-score" style="color:#22c55e">—</div>
+      </div>
+      <div class="health-desc" id="health-desc">Calculando...</div>
+    </div>
+
+    <div class="cards">
+      <div class="card c-blue">
+        <div class="card-label">Latência Atual</div>
+        <div class="card-val" id="c-lat">—<span class="card-unit">ms</span></div>
+        <div class="card-sub" id="c-lat-sub">aguardando...</div>
+      </div>
+      <div class="card c-ok">
+        <div class="card-label">Média (20 pings)</div>
+        <div class="card-val" id="c-avg">—<span class="card-unit">ms</span></div>
+        <div class="card-sub" id="c-avg-sub">—</div>
+      </div>
+      <div class="card c-err">
+        <div class="card-label">Quedas</div>
+        <div class="card-val" id="c-down">0</div>
+        <div class="card-sub">sem resposta do servidor</div>
+      </div>
+      <div class="card c-warn">
+        <div class="card-label">Oscilações</div>
+        <div class="card-val" id="c-osc">0</div>
+        <div class="card-sub">variação brusca</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAIXA DE IMPACTO -->
+  <div class="impact-scale">
+    <div class="scale-header">
+      <span class="scale-title">Faixa de impacto nos apps web</span>
+      <span class="scale-current-label" id="scale-current-label">aguardando...</span>
+    </div>
+    <div class="scale-bar">
+      <div class="scale-needle" id="scale-needle" style="left:0%"></div>
+    </div>
+    <div class="scale-labels">
+      <span>0ms</span><span>100ms</span><span>250ms</span><span>500ms</span><span>1000ms</span><span>2000ms+</span>
+    </div>
+    <div class="scale-zones" id="scale-zones">
+      <div class="zone z1 inactive" id="zone1">
+        <div class="zone-name">Ótimo</div>
+        <div class="zone-range">&lt; 80ms</div>
+        <div class="zone-desc">Apps fluidos, sem percepção de rede</div>
+      </div>
+      <div class="zone z2 inactive" id="zone2">
+        <div class="zone-name">Bom</div>
+        <div class="zone-range">80–200ms</div>
+        <div class="zone-desc">Aceitável, usuário não percebe atraso</div>
+      </div>
+      <div class="zone z3 inactive" id="zone3">
+        <div class="zone-name">Atenção</div>
+        <div class="zone-range">200–400ms</div>
+        <div class="zone-desc">Cliques parecem lentos, formulários demoram</div>
+      </div>
+      <div class="zone z4 inactive" id="zone4">
+        <div class="zone-name">Lento</div>
+        <div class="zone-range">400–1000ms</div>
+        <div class="zone-desc">Usuário percebe travacinhas, páginas demoram</div>
+      </div>
+      <div class="zone z5 inactive" id="zone5">
+        <div class="zone-name">Crítico</div>
+        <div class="zone-range">&gt; 1000ms</div>
+        <div class="zone-desc">Apps travam, timeouts, sessões caem</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHART -->
+  <div class="chart-section">
+    <div class="section-header">
+      <span class="section-title">Histórico de latência</span>
+      <div class="legend">
+        <div class="leg"><div class="leg-line" style="background:#6366f1;"></div>latência</div>
+        <div class="leg"><div class="leg-line" style="background:#ef4444;"></div>queda</div>
+        <div class="leg"><div class="leg-line" style="background:#f59e0b;"></div>lentidão/oscilação</div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
+
+  <!-- ALERTAS EXPLICATIVOS -->
+  <div class="alerts-panel">
+    <div class="section-header" style="margin-bottom:0;">
+      <span class="section-title">Alertas de impacto</span>
+      <span style="font-family:var(--font-mono);font-size:10px;color:var(--dim);">explicações do que cada evento causa</span>
+    </div>
+    <div class="alert-list" id="alert-list">
+      <div class="alert-item a-ok">
+        <div class="alert-icon">ℹ️</div>
+        <div class="alert-body">
+          <div class="alert-headline">Monitor iniciado</div>
+          <div class="alert-explain">Os alertas aqui explicarão o impacto real de cada evento nos seus apps web. Aguardando dados...</div>
+        </div>
+        <div class="alert-time" id="init-time">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOG + SETTINGS -->
+  <div class="bottom-grid">
+
+    <div class="panel">
+      <div class="section-header" style="margin-bottom:0;">
+        <span class="section-title">Registro de eventos</span>
+      </div>
+      <div class="log-list" id="log-list">
+        <div class="log-item ok">
+          <span class="log-time">--:--:--</span>
+          <span class="log-icon ok">●</span>
+          <span class="log-msg">Monitor iniciado. Aguardando primeira verificação...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="section-header" style="margin-bottom:0;">
+        <span class="section-title">Configurações</span>
+      </div>
+      <div class="settings-grid">
+        <div class="setting-row">
+          <span class="setting-label">Intervalo de verificação</span>
+          <select class="sel" id="sel-interval" onchange="changeInterval()">
+            <option value="2000">2 seg</option>
+            <option value="5000" selected>5 seg</option>
+            <option value="10000">10 seg</option>
+            <option value="30000">30 seg</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Limite lentidão (ms)</span>
+          <input type="range" id="sl-slow" min="100" max="2000" step="50" value="400" oninput="updateThresh('slow')">
+          <span class="setting-val" id="sv-slow">400ms</span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Limite oscilação (ms)</span>
+          <input type="range" id="sl-osc" min="50" max="1000" step="50" value="200" oninput="updateThresh('osc')">
+          <span class="setting-val" id="sv-osc">200ms</span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Alerta sonoro</span>
+          <select class="sel" id="sel-sound">
+            <option value="1">Ativado</option>
+            <option value="0">Desativado</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Notificação do sistema</span>
+          <button class="btn-export" onclick="requestNotif()" style="padding:4px 10px;font-size:10px;">Permitir</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <button class="btn-export" onclick="exportCSV()">↓ Exportar CSV</button>
+    <button class="btn-export" onclick="exportTXT()">↓ Exportar TXT</button>
+    <button class="btn-clear" onclick="clearAll()">Limpar tudo</button>
+    <span class="checks-info" id="checks-info">0 verificações realizadas</span>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="alert-toast" id="toast">
+  <div class="toast-title" id="toast-title"></div>
+  <div class="toast-body" id="toast-body"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ── STATE ───────────────────────────────────────────────────────
+let running = true;
+let timer = null;
+let interval = 5000;
+let SLOW = 400;
+let OSC = 200;
+let history = [];
+let allLogs = [];
+let alertLogs = [];
+let checks = 0;
+let downCount = 0;
+let oscCount = 0;
+let slowCount = 0;
+let chart = null;
+let toastTimer = null;
+let prevLat = null;
+let wasDown = false;
+const MAX_PTS = 60;
+
+const urls = [
+  'https://www.google.com/favicon.ico',
+  'https://www.cloudflare.com/favicon.ico',
+  'https://1.1.1.1/favicon.ico',
+];
+let urlIdx = 0;
+
+// ── IMPACT ZONES ─────────────────────────────────────────────────
+// Define zonas de impacto para apps web
+const ZONES = [
+  { id: 'zone1', max: 80,   label: 'Ótimo',   cls: 'ok' },
+  { id: 'zone2', max: 200,  label: 'Bom',     cls: 'ok' },
+  { id: 'zone3', max: 400,  label: 'Atenção', cls: 'warn' },
+  { id: 'zone4', max: 1000, label: 'Lento',   cls: 'warn' },
+  { id: 'zone5', max: 99999,label: 'Crítico', cls: 'err' },
+];
+
+function getZoneIndex(lat) {
+  if (lat === null) return -1;
+  for (let i = 0; i < ZONES.length; i++) {
+    if (lat < ZONES[i].max) return i;
+  }
+  return ZONES.length - 1;
+}
+
+// ── IMPACT KNOWLEDGE BASE ────────────────────────────────────────
+// Textos explicativos mapeados para apps web
+function getImpactInfo(lat, status) {
+  if (lat === null) {
+    return {
+      title: '🔴 Conexão perdida — apps web inacessíveis',
+      impact: '<strong>Todos os seus sistemas web estão indisponíveis agora.</strong> Usuários não conseguem carregar nenhuma página, salvar dados ou acessar qualquer funcionalidade. Sessões abertas podem expirar.',
+      tip: '→ Verifique o cabo/Wi-Fi · Reinicie o roteador se persistir',
+      severity: 'err',
+      toastTitle: '🔴 Conexão perdida',
+      toastBody: 'Seus apps web estão inacessíveis. Verifique a rede imediatamente.',
+    };
+  }
+
+  if (lat < 80) {
+    return {
+      title: '✅ Conexão ótima — nenhum impacto nos apps',
+      impact: 'Latência excelente. Seus apps web respondem de forma <strong>instantânea</strong>. Usuários não percebem nenhum atraso em cliques, formulários, carregamentos ou salvamentos.',
+      tip: null, severity: 'ok', toastTitle: null, toastBody: null,
+    };
+  }
+
+  if (lat < 200) {
+    return {
+      title: '✅ Conexão boa — impacto imperceptível',
+      impact: 'Latência dentro do aceitável. Apps web funcionam normalmente. <strong>Usuários não percebem atraso</strong> em operações comuns como cliques e salvamentos.',
+      tip: null, severity: 'ok', toastTitle: null, toastBody: null,
+    };
+  }
+
+  if (lat < 400) {
+    return {
+      title: '⚠️ Atenção — usuários podem notar lentidão leve',
+      impact: 'Nesta faixa, <strong>cliques em botões e envio de formulários parecem "pesados"</strong>. Páginas demoram um pouco mais para carregar. A maioria dos usuários nota um pequeno atraso, mas ainda consegue trabalhar.',
+      tip: '→ Monitore se a latência continua subindo · Verifique outros dispositivos na rede',
+      severity: 'warn', toastTitle: null, toastBody: null,
+    };
+  }
+
+  if (lat < 1000) {
+    return {
+      title: '🟠 Lentidão — apps web com degradação visível',
+      impact: '<strong>Usuários percebem travadinhas</strong> ao navegar entre telas. Formulários demoram para confirmar. Uploads/downloads lentos. Sistemas com muitas chamadas de API (ERPs, CRMs) ficam notavelmente lentos.',
+      tip: '→ Se persistir por mais de 2 minutos: reporte ao TI · Evite operações em lote agora',
+      severity: 'warn',
+      toastTitle: '🟠 Lentidão detectada',
+      toastBody: `${lat}ms — apps web com degradação visível. Formulários e navegação lentos.`,
+    };
+  }
+
+  // > 1000ms
+  return {
+    title: '🔴 Crítico — apps web travando ou em timeout',
+    impact: '<strong>Impacto severo.</strong> Páginas demoram para abrir ou não abrem. Formulários podem dar timeout e perder dados. Sessões autenticadas podem cair. Usuários provavelmente já estão reportando problemas.',
+    tip: '→ Interrompa operações críticas · Salve dados localmente se possível · Contate o TI',
+    severity: 'err',
+    toastTitle: '🔴 Latência crítica',
+    toastBody: `${lat}ms — risco de timeout e travamento. Apps web severamente impactados.`,
+  };
+}
+
+function getOscImpact(prev, curr) {
+  const delta = Math.abs(curr - prev);
+  if (delta > 500) {
+    return {
+      title: '🔴 Oscilação severa — instabilidade crítica',
+      impact: `Variação de <strong>${prev}ms → ${curr}ms (Δ${delta}ms)</strong>. Esse nível de instabilidade causa <strong>falhas em chamadas de API</strong>, perdas de requisição e comportamento imprevisível nos apps. Usuários provavelmente estão vendo erros ou telas congeladas.`,
+      tip: '→ Possível interferência no Wi-Fi ou saturação de link · Evite operações críticas agora',
+    };
+  }
+  if (delta > 200) {
+    return {
+      title: '⚠️ Oscilação alta — apps web instáveis',
+      impact: `Variação de <strong>${prev}ms → ${curr}ms (Δ${delta}ms)</strong>. Conexão instável. Apps web podem apresentar <strong>lentidão intermitente</strong> — ora funciona normal, ora trava. Comum em Wi-Fi com interferência ou link congestionado.`,
+      tip: '→ Tente cabo ao invés de Wi-Fi · Verifique dispositivos consumindo largura de banda',
+    };
+  }
+  return {
+    title: '⚠️ Oscilação detectada — instabilidade leve',
+    impact: `Variação de <strong>${prev}ms → ${curr}ms (Δ${delta}ms)</strong>. Flutuação moderada na latência. Apps web podem apresentar pequenas travadinhas intermitentes, mas geralmente sem impacto grave.`,
+    tip: '→ Monitore se as oscilações se tornam mais frequentes',
+  };
+}
+
+// ── UTILS ───────────────────────────────────────────────────────
+function ts() {
+  return new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+function tsDate() {
+  return new Date().toLocaleString('pt-BR');
+}
+
+// ── SOUND ───────────────────────────────────────────────────────
+function beep(freq, dur, vol) {
+  if (document.getElementById('sel-sound').value !== '1') return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = freq;
+    g.gain.value = vol || 0.15;
+    o.start();
+    o.stop(ctx.currentTime + (dur || 0.2));
+  } catch(e) {}
+}
+
+// ── NOTIFICATIONS ────────────────────────────────────────────────
+function requestNotif() {
+  if ('Notification' in window) Notification.requestPermission();
+}
+function notify(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body });
+  }
+}
+
+// ── TOAST ────────────────────────────────────────────────────────
+function showToast(title, body, type) {
+  const el = document.getElementById('toast');
+  el.className = 'alert-toast t-' + (type || 'err');
+  document.getElementById('toast-title').textContent = title;
+  document.getElementById('toast-body').textContent = body;
+  el.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.display = 'none'; }, 7000);
+}
+
+// ── LOG ──────────────────────────────────────────────────────────
+function addLog(type, msg) {
+  const time = ts();
+  allLogs.push({ time, type, msg });
+  const list = document.getElementById('log-list');
+  const d = document.createElement('div');
+  d.className = 'log-item ' + type;
+  const icon = type === 'ok' ? '●' : type === 'warn' ? '▲' : '✕';
+  d.innerHTML = `<span class="log-time">${time}</span><span class="log-icon ${type}">${icon}</span><span class="log-msg">${msg}</span>`;
+  list.insertBefore(d, list.firstChild);
+  while (list.children.length > 80) list.removeChild(list.lastChild);
+}
+
+// ── ALERT EXPLICATIVO ────────────────────────────────────────────
+function addAlert(info, time) {
+  const t = time || ts();
+  alertLogs.push({ time: t, ...info });
+  const list = document.getElementById('alert-list');
+
+  const d = document.createElement('div');
+  d.className = 'alert-item a-' + info.severity;
+
+  const icon = info.severity === 'ok' ? '✅' : info.severity === 'warn' ? '⚠️' : '🔴';
+
+  d.innerHTML = `
+    <div class="alert-icon">${icon}</div>
+    <div class="alert-body">
+      <div class="alert-headline">${info.title}</div>
+      <div class="alert-explain">${info.impact}</div>
+      ${info.tip ? `<span class="alert-action">${info.tip}</span>` : ''}
+    </div>
+    <div class="alert-time">${t}</div>
+  `;
+
+  list.insertBefore(d, list.firstChild);
+  while (list.children.length > 30) list.removeChild(list.lastChild);
+}
+
+// ── HEALTH SCORE ─────────────────────────────────────────────────
+function calcHealthScore() {
+  if (checks < 3) return null;
+  const valid = history.filter(x => x !== null);
+  if (valid.length === 0) return 0;
+
+  const avg = valid.reduce((a,b) => a+b, 0) / valid.length;
+  const downRate = downCount / Math.max(checks, 1);
+  const oscRate = oscCount / Math.max(checks, 1);
+
+  // Pontuação baseada em latência (0-60 pts)
+  let latScore = 60;
+  if (avg > 1000) latScore = 0;
+  else if (avg > 400) latScore = Math.round(60 * (1 - (avg - 400) / 600));
+  else if (avg > 200) latScore = Math.round(40 + 20 * (1 - (avg - 200) / 200));
+  else if (avg > 80) latScore = Math.round(50 + 10 * (1 - (avg - 80) / 120));
+
+  // Penalidade por quedas (0-25 pts)
+  const downPenalty = Math.min(25, Math.round(downRate * 100));
+
+  // Penalidade por oscilações (0-15 pts)
+  const oscPenalty = Math.min(15, Math.round(oscRate * 50));
+
+  return Math.max(0, Math.min(100, latScore - downPenalty - oscPenalty));
+}
+
+function updateHealthRing(score) {
+  const ring = document.getElementById('health-ring');
+  const num = document.getElementById('health-score');
+  const desc = document.getElementById('health-desc');
+  const circumference = 201;
+
+  if (score === null) {
+    ring.style.strokeDashoffset = circumference;
+    num.textContent = '—';
+    desc.textContent = 'Calculando...';
+    return;
+  }
+
+  const offset = circumference - (circumference * score / 100);
+  ring.style.strokeDashoffset = offset;
+  num.textContent = score;
+
+  let color, descText;
+  if (score >= 80) { color = '#22c55e'; descText = 'Excelente\nnenhum impacto'; }
+  else if (score >= 60) { color = '#84cc16'; descText = 'Boa\nimpacto mínimo'; }
+  else if (score >= 40) { color = '#f59e0b'; descText = 'Regular\nimpacto moderado'; }
+  else if (score >= 20) { color = '#f97316'; descText = 'Ruim\nimpacto alto'; }
+  else { color = '#ef4444'; descText = 'Crítica\napps travando'; }
+
+  ring.style.stroke = color;
+  num.style.color = color;
+  desc.textContent = descText;
+}
+
+// ── SCALE BAR ────────────────────────────────────────────────────
+function updateScaleBar(lat) {
+  const needle = document.getElementById('scale-needle');
+  const label = document.getElementById('scale-current-label');
+
+  if (lat === null) {
+    needle.style.left = '100%';
+    label.textContent = 'sem conexão';
+    return;
+  }
+
+  // Escala logarítmica de 0 a 2000ms em 0-100%
+  const maxMs = 2000;
+  const pct = Math.min(100, Math.round((lat / maxMs) * 100));
+  needle.style.left = pct + '%';
+  label.textContent = `atual: ${lat}ms`;
+
+  // Atualiza zonas
+  const zIdx = getZoneIndex(lat);
+  for (let i = 0; i < 5; i++) {
+    const el = document.getElementById('zone' + (i+1));
+    if (el) el.className = el.className.replace(' active', '').replace(' inactive', '') + (i === zIdx ? ' active' : ' inactive');
+  }
+}
+
+// ── CHART ────────────────────────────────────────────────────────
+function initChart() {
+  const ctx = document.getElementById('chart');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'ms',
+        data: [],
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99,102,241,0.07)',
+        tension: 0.35,
+        pointRadius: 4,
+        pointBackgroundColor: [],
+        pointBorderColor: 'transparent',
+        fill: true,
+        borderWidth: 2,
+        spanGaps: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 250 },
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          min: 0,
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { font: { size: 10, family: 'JetBrains Mono' }, color: '#4b5563' }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 9, family: 'JetBrains Mono' }, color: '#4b5563', maxTicksLimit: 8, maxRotation: 0, autoSkip: true }
+        }
+      }
+    }
+  });
+}
+
+function pushChart(lat, status) {
+  const d = chart.data;
+  d.labels.push(ts());
+  d.datasets[0].data.push(lat);
+  let col = '#6366f1';
+  if (lat === null) col = '#ef4444';
+  else if (lat > SLOW || status === 'osc') col = '#f59e0b';
+  d.datasets[0].pointBackgroundColor.push(col);
+  if (d.labels.length > MAX_PTS) {
+    d.labels.shift();
+    d.datasets[0].data.shift();
+    d.datasets[0].pointBackgroundColor.shift();
+  }
+  chart.update('none');
+}
+
+// ── BANNER ───────────────────────────────────────────────────────
+function updateBanner(lat, status, impactInfo) {
+  const banner = document.getElementById('banner');
+  const bTitle = document.getElementById('banner-title');
+  const bImpact = document.getElementById('banner-impact');
+  const bTip = document.getElementById('banner-tip');
+  const bLat = document.getElementById('banner-lat');
+  const bIcon = document.getElementById('banner-icon');
+  const dot = document.getElementById('live-dot');
+  const topStatus = document.getElementById('topbar-status');
+  document.getElementById('topbar-time').textContent = ts();
+
+  if (!running) {
+    banner.className = 'impact-banner warn';
+    bTitle.className = 'banner-title warn'; bTitle.textContent = 'Pausado';
+    bImpact.textContent = 'Monitoramento suspenso pelo usuário.';
+    bTip.style.display = 'none';
+    bLat.className = 'banner-lat warn'; bLat.textContent = '—';
+    bIcon.textContent = '⏸';
+    dot.className = 'live-dot paused';
+    topStatus.textContent = 'PAUSADO';
+    return;
+  }
+
+  const sev = impactInfo ? impactInfo.severity : 'ok';
+  banner.className = 'impact-banner ' + (lat === null ? 'critical' : sev);
+  bTitle.className = 'banner-title ' + sev;
+  bTitle.textContent = impactInfo ? impactInfo.title.replace(/^[^\w]*/, '') : '—';
+  bImpact.innerHTML = impactInfo ? impactInfo.impact : '';
+
+  if (impactInfo && impactInfo.tip) {
+    bTip.textContent = impactInfo.tip;
+    bTip.style.display = 'inline-block';
+  } else {
+    bTip.style.display = 'none';
+  }
+
+  bLat.className = 'banner-lat ' + sev;
+  bLat.textContent = lat === null ? 'OFFLINE' : lat + ' ms';
+  bIcon.textContent = lat === null ? '✕' : sev === 'err' ? '▲' : sev === 'warn' ? '▲' : '✓';
+
+  dot.className = 'live-dot' + (lat === null ? ' down' : sev !== 'ok' ? ' paused' : '');
+  topStatus.textContent = lat === null ? 'OFFLINE' : sev === 'err' ? 'CRÍTICO' : sev === 'warn' ? (status === 'osc' ? 'OSCILANDO' : 'LENTO') : 'ONLINE';
+}
+
+// ── CARDS ────────────────────────────────────────────────────────
+function updateCards(lat, avg) {
+  const cLat = document.getElementById('c-lat');
+  cLat.innerHTML = (lat === null ? '—' : lat) + '<span class="card-unit">ms</span>';
+  document.getElementById('c-lat-sub').textContent = lat === null ? 'sem resposta' : lat > SLOW ? 'lentidão!' : 'normal';
+  document.getElementById('c-avg').innerHTML = (avg === null ? '—' : avg) + '<span class="card-unit">ms</span>';
+  document.getElementById('c-avg-sub').textContent = avg === null ? '—' : avg > SLOW ? 'média alta' : 'média ok';
+  document.getElementById('c-down').textContent = downCount;
+  document.getElementById('c-osc').textContent = oscCount;
+  document.getElementById('checks-info').textContent = checks + ' verificaç' + (checks === 1 ? 'ão' : 'ões') + ' realizadas';
+}
+
+// ── MEASURE ──────────────────────────────────────────────────────
+async function measure() {
+  const url = urls[urlIdx % urls.length] + '?nc=' + Date.now();
+  urlIdx++;
+  const t0 = performance.now();
+  try {
+    await Promise.race([
+      fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store' }),
+      new Promise((_,r) => setTimeout(() => r(new Error('timeout')), 5000))
+    ]);
+    return Math.round(performance.now() - t0);
+  } catch(e) {
+    return null;
+  }
+}
+
+// ── MAIN LOOP ────────────────────────────────────────────────────
+// Controle para não repetir alertas desnecessariamente
+let lastAlertSeverity = 'ok';
+let consecutiveSlows = 0;
+
+async function doCheck() {
+  if (!running) return;
+  const lat = await measure();
+  checks++;
+
+  const validH = history.filter(x => x !== null);
+  const avg = validH.length ? Math.round(validH.reduce((a,b) => a+b, 0) / validH.length) : null;
+
+  let status = 'ok';
+  let impactInfo = getImpactInfo(lat, status);
+
+  if (lat === null) {
+    status = 'down';
+    downCount++;
+    impactInfo = getImpactInfo(null, 'down');
+    if (!wasDown) {
+      addLog('err', 'QUEDA — sem resposta do servidor de teste');
+      addAlert({ ...impactInfo, severity: 'err' });
+      beep(220, 0.4, 0.25);
+      notify('Monitor de Rede — QUEDA', 'Conexão perdida. Apps web inacessíveis!');
+      showToast(impactInfo.toastTitle, impactInfo.toastBody, 'err');
+    }
+    wasDown = true;
+    consecutiveSlows = 0;
+
+  } else {
+    if (wasDown) {
+      addLog('ok', `Conexão restabelecida — latência: ${lat}ms`);
+      const restInfo = {
+        title: '✅ Conexão restabelecida',
+        impact: `Link recuperado com latência de <strong>${lat}ms</strong>. Apps web voltaram a funcionar. Verifique se alguma operação em andamento foi interrompida durante a queda.`,
+        tip: '→ Atualize as páginas abertas para garantir dados corretos',
+        severity: 'ok',
+      };
+      addAlert(restInfo);
+      beep(880, 0.15);
+      notify('Monitor de Rede — ONLINE', `Conexão restabelecida (${lat}ms). Apps web disponíveis.`);
+      wasDown = false;
+      consecutiveSlows = 0;
+
+    } else if (prevLat !== null && Math.abs(lat - prevLat) > OSC) {
+      status = 'osc';
+      oscCount++;
+      const oscInfo = getOscImpact(prevLat, lat);
+      impactInfo = { ...oscInfo, severity: Math.abs(lat - prevLat) > 300 ? 'err' : 'warn' };
+      addLog('warn', `OSCILAÇÃO: ${prevLat}ms → ${lat}ms (Δ${Math.abs(lat-prevLat)}ms)`);
+      addAlert(impactInfo);
+      beep(550, 0.2);
+      if (Math.abs(lat - prevLat) > 300) {
+        showToast('⚠️ Oscilação severa', `${prevLat}ms → ${lat}ms — instabilidade nos apps web`, 'warn');
+      }
+
+    } else if (lat > SLOW) {
+      status = 'slow';
+      slowCount++;
+      consecutiveSlows++;
+      impactInfo = getImpactInfo(lat, 'slow');
+
+      // Alerta só a cada 3 leituras lentas consecutivas para não spammar
+      if (consecutiveSlows === 1 || consecutiveSlows % 5 === 0) {
+        addLog('warn', `LENTIDÃO: ${lat}ms (limite: ${SLOW}ms)`);
+        addAlert(impactInfo);
+        beep(440, 0.25);
+        if (lat > 1000) {
+          showToast(impactInfo.toastTitle, impactInfo.toastBody, 'err');
+        } else if (consecutiveSlows >= 3) {
+          showToast('⚠️ Lentidão persistente', `${consecutiveSlows} leituras acima de ${SLOW}ms — apps web degradados`, 'warn');
+        }
+      }
+
+    } else {
+      consecutiveSlows = 0;
+      impactInfo = getImpactInfo(lat, 'ok');
+      if (checks % 10 === 0) addLog('ok', `OK — ${lat}ms · média: ${avg}ms · quedas: ${downCount} · osc: ${oscCount}`);
+    }
+  }
+
+  prevLat = lat;
+  history.push(lat);
+  if (history.length > 20) history.shift();
+
+  const score = calcHealthScore();
+  updateHealthRing(score);
+  updateBanner(lat, status, impactInfo);
+  updateCards(lat, avg);
+  updateScaleBar(lat);
+  pushChart(lat, status);
+
+  if (running) timer = setTimeout(doCheck, interval);
+}
+
+// ── CONTROLS ─────────────────────────────────────────────────────
+function togglePause() {
+  running = !running;
+  const btn = document.getElementById('btn-pause');
+  if (running) {
+    btn.textContent = '⏸ PAUSAR';
+    addLog('ok', 'Monitoramento retomado');
+    doCheck();
+  } else {
+    clearTimeout(timer);
+    btn.textContent = '▶ RETOMAR';
+    addLog('warn', 'Monitoramento pausado pelo usuário');
+    updateBanner(null, 'paused', null);
+  }
+}
+
+function changeInterval() {
+  interval = parseInt(document.getElementById('sel-interval').value);
+  addLog('ok', `Intervalo alterado para ${interval/1000}s`);
+}
+
+function updateThresh(type) {
+  if (type === 'slow') {
+    SLOW = parseInt(document.getElementById('sl-slow').value);
+    document.getElementById('sv-slow').textContent = SLOW + 'ms';
+  } else {
+    OSC = parseInt(document.getElementById('sl-osc').value);
+    document.getElementById('sv-osc').textContent = OSC + 'ms';
+  }
+}
+
+function clearAll() {
+  downCount = 0; oscCount = 0; slowCount = 0; checks = 0;
+  history = []; prevLat = null; wasDown = false; consecutiveSlows = 0;
+  allLogs = []; alertLogs = [];
+  document.getElementById('log-list').innerHTML = '';
+  document.getElementById('alert-list').innerHTML = '';
+  chart.data.labels = [];
+  chart.data.datasets[0].data = [];
+  chart.data.datasets[0].pointBackgroundColor = [];
+  chart.update();
+  updateHealthRing(null);
+  updateScaleBar(null);
+  addLog('ok', 'Dados limpos pelo usuário.');
+}
+
+// ── EXPORT ───────────────────────────────────────────────────────
+function exportCSV() {
+  let csv = 'data_hora,tipo,mensagem\n';
+  allLogs.forEach(l => { csv += `"${l.time}","${l.type}","${l.msg}"\n`; });
+  download('monitor-rede-log.csv', csv, 'text/csv');
+}
+
+function exportTXT() {
+  let txt = `Monitor de Rede — Exportado em ${tsDate()}\n`;
+  txt += `Verificações: ${checks} | Quedas: ${downCount} | Oscilações: ${oscCount}\n`;
+  txt += '─'.repeat(60) + '\n';
+  allLogs.forEach(l => { txt += `[${l.time}] [${l.type.toUpperCase()}] ${l.msg}\n`; });
+  download('monitor-rede-log.txt', txt, 'text/plain');
+}
+
+function download(name, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = name;
+  a.click();
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+document.getElementById('init-time').textContent = ts();
+initChart();
+addLog('ok', 'Monitor iniciado — ' + tsDate());
+doCheck();
+</script>
+</body>
+</html>
