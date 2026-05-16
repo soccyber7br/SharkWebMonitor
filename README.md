@@ -3,6 +3,8 @@
 Monitore a experiênci do seu usuário web em tempo real focado em **impacto real nos aplicativos web**.  
 Ao invés de mostrar apenas números, ele traduz latência, quedas e oscilações em **efeitos práticos para o usuário**.
 
+<img width="1065" height="825" alt="image" src="https://github.com/user-attachments/assets/ec18b0b8-6afd-442c-a282-bf935dab04bc" />
+
 ---
 
 ## 🚀 Visão geral
