@@ -2,6 +2,7 @@
 
 Monitor de rede em tempo real focado em **impacto real nos aplicativos web**.  
 Ao invés de mostrar apenas números, ele traduz latência, quedas e oscilações em **efeitos práticos para o usuário**.
+Ideal para mostrar a experiencia do usuário e aplicação web via Navegador.
 
 ---
 
